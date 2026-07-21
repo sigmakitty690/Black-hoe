@@ -1,497 +1,557 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SINGULARITY — Gargantua in Two Plates</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net">
-<link href="https://cdn.jsdelivr.net/fontsource/css/michroma@latest/index.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/fontsource/css/space-grotesk@latest/index.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/fontsource/css/ibm-plex-mono@latest/index.css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>黑洞模拟 · 吸积盘 / 光子环 / 多普勒频移</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/500.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/700.css">
 <style>
-  :root{
-    --bg:#04060c;
-    --bg2:#070a14;
-    --ink:#e7eefb;
-    --dim:#93a6c4;
-    --faint:#5d6f8c;
-    --amber:#ffb347;
-    --amber2:#ffd49a;
-    --violet:#b07cff;
-    --cyan:#62d2ff;
-    --line:rgba(150,180,220,.16);
-    --line2:rgba(150,180,220,.09);
-    --panel:rgba(8,12,22,.72);
-    --maxw:1180px;
-  }
-  *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{font-family:'Space Grotesk',system-ui,sans-serif;color:var(--ink);background:var(--bg);
-    overflow-x:hidden;line-height:1.6}
-  ::selection{background:rgba(255,179,71,.3);color:#fff}
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%; height:100%; overflow:hidden; background:#000;
+  font-family:'Noto Sans SC', system-ui, -apple-system, sans-serif; color:#e8e6e3; }
+#glcanvas { position:fixed; inset:0; width:100%; height:100%; display:block;
+  touch-action:none; cursor:grab; }
+#glcanvas.dragging { cursor:grabbing; }
 
-  /* ---------- background layers ---------- */
-  #stars{position:fixed;inset:0;z-index:0;pointer-events:none}
-  .cosmic{position:fixed;inset:0;z-index:0;pointer-events:none;
-    background:
-      radial-gradient(900px 600px at 78% 12%, rgba(176,124,255,.10), transparent 60%),
-      radial-gradient(800px 700px at 12% 80%, rgba(98,210,255,.08), transparent 60%),
-      radial-gradient(1200px 900px at 50% 50%, rgba(255,179,71,.05), transparent 70%);
-  }
-  .grain{position:fixed;inset:-40px;z-index:1;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
-    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="200" height="200" filter="url(%23n)" opacity="0.6"/></svg>');
-    animation:grain 1s steps(6) infinite}
-  @keyframes grain{0%{transform:translate(0,0)}100%{transform:translate(90px,60px)}}
+#titlebar { position:fixed; top:20px; left:24px; pointer-events:none; user-select:none; z-index:5; }
+#titlebar h1 { font-size:22px; font-weight:700; letter-spacing:3px; text-shadow:0 2px 14px rgba(0,0,0,.9); }
+#titlebar h1 span { color:#ff9a3c; }
+#titlebar p { margin-top:5px; font-size:12px; color:rgba(232,230,227,.55); letter-spacing:1px; }
 
-  /* ---------- scroll progress ---------- */
-  #prog{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
-    background:linear-gradient(90deg,var(--cyan),var(--amber),var(--violet));
-    box-shadow:0 0 12px rgba(255,179,71,.6)}
+#panel { position:fixed; top:20px; right:20px; width:252px; z-index:10;
+  background:rgba(12,15,26,.72); border:1px solid rgba(255,255,255,.09); border-radius:14px;
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 8px 32px rgba(0,0,0,.5); overflow:hidden; }
+#panel .head { display:flex; justify-content:space-between; align-items:center;
+  padding:11px 16px; border-bottom:1px solid rgba(255,255,255,.07);
+  font-size:13px; font-weight:500; letter-spacing:2px; }
+#collapseBtn { background:none; border:none; color:#9aa5b5; font-size:16px; cursor:pointer;
+  line-height:1; padding:2px 8px; border-radius:6px; }
+#collapseBtn:hover { background:rgba(255,255,255,.08); color:#fff; }
+#panelBody { padding:13px 16px 16px; max-height:72vh; overflow-y:auto; }
+#panel.collapsed #panelBody { display:none; }
+#panelBody::-webkit-scrollbar { width:5px; }
+#panelBody::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:3px; }
+.section { font-size:11px; color:#ff9a3c; letter-spacing:3px; margin:13px 0 8px; opacity:.9; }
+.section:first-child { margin-top:0; }
+.row { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; font-size:13px; }
+.row label { color:rgba(232,230,227,.85); cursor:pointer; }
+input[type=checkbox] { accent-color:#ff9a3c; width:15px; height:15px; cursor:pointer; }
+.sliderRow { display:block; margin-bottom:9px; }
+.sliderRow .top { display:flex; justify-content:space-between; font-size:13px; margin-bottom:1px; }
+.sliderRow .top label { color:rgba(232,230,227,.85); }
+.val { font-size:11px; color:rgba(232,230,227,.5); font-variant-numeric:tabular-nums; }
+input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:4px;
+  border-radius:2px; background:rgba(255,255,255,.14); outline:none; margin:7px 0 2px; cursor:pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px;
+  border-radius:50%; background:#ff9a3c; border:2px solid #1a1208;
+  box-shadow:0 0 8px rgba(255,154,60,.6); cursor:pointer; }
+input[type=range]::-moz-range-thumb { width:11px; height:11px; border-radius:50%;
+  background:#ff9a3c; border:2px solid #1a1208; cursor:pointer; }
+select { background:rgba(255,255,255,.08); color:#e8e6e3; border:1px solid rgba(255,255,255,.12);
+  border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer; outline:none; font-family:inherit; }
+button.action { width:100%; margin-top:5px; padding:8px 0;
+  background:linear-gradient(135deg, rgba(255,154,60,.18), rgba(255,154,60,.07));
+  border:1px solid rgba(255,154,60,.35); color:#ffb877; border-radius:9px;
+  font-size:13px; cursor:pointer; font-family:inherit; letter-spacing:3px; transition:all .2s; }
+button.action:hover { background:linear-gradient(135deg, rgba(255,154,60,.32), rgba(255,154,60,.14));
+  box-shadow:0 0 16px rgba(255,154,60,.25); }
 
-  /* ---------- nav ---------- */
-  nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;
-    justify-content:space-between;padding:14px 30px;
-    background:linear-gradient(180deg,rgba(4,6,12,.85),rgba(4,6,12,0));
-    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-    transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
-  nav.scrolled{background:rgba(4,6,12,.82);border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;gap:11px;font-family:'Michroma';font-size:13px;
-    letter-spacing:.3em;color:var(--ink)}
-  .brand .ring{width:18px;height:18px;border-radius:50%;border:1px solid var(--amber);position:relative;flex:none;
-    box-shadow:0 0 14px rgba(255,179,71,.35)}
-  .brand .ring::after{content:"";position:absolute;inset:5px;border-radius:50%;background:#000;
-    box-shadow:inset 0 0 4px rgba(255,179,71,.5)}
-  .navlinks{display:flex;gap:26px}
-  .navlinks a{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.22em;color:var(--dim);
-    text-decoration:none;transition:color .2s;position:relative}
-  .navlinks a:hover{color:var(--amber2)}
-  .navlinks a::after{content:"";position:absolute;left:0;bottom:-6px;height:1px;width:0;background:var(--amber);
-    transition:width .25s}
-  .navlinks a:hover::after{width:100%}
-  .navstat{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--faint);
-    display:flex;align-items:center;gap:8px}
-  .navstat .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);
-    animation:pulse 1.8s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#stats { position:fixed; left:24px; bottom:18px; z-index:5; font-size:11px;
+  color:rgba(232,230,227,.5); letter-spacing:1px; font-variant-numeric:tabular-nums;
+  pointer-events:none; text-shadow:0 1px 6px rgba(0,0,0,.9); }
+#stats b { color:rgba(255,180,110,.9); font-weight:500; }
 
-  /* ---------- hero ---------- */
-  .hero{position:relative;height:100vh;min-height:640px;overflow:hidden;display:flex;
-    align-items:center;justify-content:center;z-index:2}
-  .hero-img{position:absolute;inset:-6%;background-size:cover;background-position:center;
-    animation:ken 36s ease-in-out infinite alternate;will-change:transform;filter:saturate(1.08) contrast(1.05)}
-  @keyframes ken{0%{transform:scale(1.04) translate(0,0)}100%{transform:scale(1.16) translate(-1.5%,-1%)}}
-  .hero-ov{position:absolute;inset:0;
-    background:
-      radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(4,6,12,.55) 78%, rgba(4,6,12,.92) 100%),
-      linear-gradient(180deg, rgba(4,6,12,.7) 0%, transparent 28%, transparent 64%, rgba(4,6,12,.96) 100%)}
-  .hero-in{position:relative;text-align:center;padding:0 24px;max-width:920px}
-  @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-  .hero .ov{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.42em;color:var(--amber2);
-    margin-bottom:22px;animation:rise .9s .1s both}
-  .hero h1{font-family:'Michroma';font-weight:400;font-size:clamp(40px,9vw,108px);letter-spacing:.12em;
-    line-height:.96;color:#fff;text-shadow:0 0 50px rgba(255,179,71,.35),0 0 120px rgba(176,124,255,.25);
-    animation:rise 1s .2s both}
-  .hero h1 span{background:linear-gradient(120deg,var(--amber),var(--violet) 60%,var(--cyan));
-    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .hero .tag{margin:26px auto 0;max-width:620px;font-size:clamp(13px,1.6vw,16px);color:var(--dim);
-    letter-spacing:.02em;animation:rise 1s .35s both}
-  .hero .chips{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;animation:rise 1s .5s both}
-  .chip{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--dim);
-    border:1px solid var(--line);padding:8px 14px;background:rgba(8,12,22,.4);backdrop-filter:blur(4px)}
-  .chip b{color:var(--amber2);font-weight:400}
-  .scrollcue{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:3;
-    font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.3em;color:var(--faint);
-    display:flex;flex-direction:column;align-items:center;gap:10px;animation:rise 1s .8s both}
-  .scrollcue .bar{width:1px;height:42px;background:linear-gradient(180deg,var(--amber),transparent);
-    position:relative;overflow:hidden}
-  .scrollcue .bar::after{content:"";position:absolute;top:-50%;left:0;width:1px;height:50%;background:var(--amber2);
-    animation:drop 1.8s ease-in-out infinite}
-  @keyframes drop{0%{top:-50%}100%{top:100%}}
+#hint { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:5;
+  padding:8px 20px; background:rgba(12,15,26,.62); border:1px solid rgba(255,255,255,.09);
+  border-radius:999px; font-size:12px; color:rgba(232,230,227,.78); letter-spacing:1px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  transition:opacity 1.2s; pointer-events:none; white-space:nowrap; }
+#hint.hidden { opacity:0; }
 
-  /* ---------- sections ---------- */
-  main{position:relative;z-index:2}
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 30px}
-  section.plate{padding:120px 0;position:relative}
-  .sec-head{margin-bottom:46px}
-  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.34em;color:var(--faint);
-    display:flex;align-items:center;gap:12px;margin-bottom:14px}
-  .sec-num .ln{flex:0 0 46px;height:1px;background:var(--amber)}
-  .sec-num em{font-style:normal;color:var(--amber2)}
-  .sec-head h2{font-family:'Michroma';font-weight:400;font-size:clamp(24px,4vw,42px);letter-spacing:.1em;
-    color:var(--ink);line-height:1.1}
-  .sec-head h2 b{color:var(--amber);font-weight:400}
-  .sec-head p{margin-top:14px;max-width:640px;color:var(--dim);font-size:15px}
+#err { display:none; position:fixed; inset:0; z-index:99; background:#0a0d16;
+  color:#e8e6e3; align-items:center; justify-content:center; text-align:center;
+  font-size:14px; line-height:2; padding:20px; }
 
-  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
-  .grid.rev{grid-template-columns:.85fr 1.15fr}
-
-  /* framed image */
-  .frame{position:relative;cursor:zoom-in;border:1px solid var(--line);background:#000;
-    box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(176,124,255,.08)}
-  .frame img{display:block;width:100%;height:auto;transition:transform .8s cubic-bezier(.2,.7,.2,1),filter .6s}
-  .frame:hover img{transform:scale(1.03);filter:brightness(1.08) saturate(1.1)}
-  .frame::before,.frame::after{content:"";position:absolute;width:16px;height:16px;border:1px solid var(--amber);
-    opacity:.85;pointer-events:none;z-index:2}
-  .frame::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
-  .frame::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
-  .frame .corner-tr,.frame .corner-bl{position:absolute;width:16px;height:16px;border:1px solid var(--amber);
-    opacity:.85;pointer-events:none;z-index:2}
-  .frame .corner-tr{top:-1px;right:-1px;border-left:0;border-bottom:0}
-  .frame .corner-bl{bottom:-1px;left:-1px;border-right:0;border-top:0}
-  .frame .cap{position:absolute;left:0;right:0;bottom:0;padding:34px 18px 14px;z-index:2;
-    background:linear-gradient(0deg,rgba(2,4,9,.92),transparent);
-    display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
-    font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--dim)}
-  .frame .cap b{color:var(--amber2);font-weight:400}
-  .frame .zoom{position:absolute;top:12px;right:12px;z-index:3;font-family:'IBM Plex Mono',monospace;
-    font-size:9px;letter-spacing:.2em;color:var(--amber2);border:1px solid rgba(255,179,71,.4);
-    padding:5px 9px;background:rgba(4,6,12,.6);opacity:0;transition:opacity .3s;pointer-events:none}
-  .frame:hover .zoom{opacity:1}
-
-  /* text column */
-  .col h3{font-family:'Michroma';font-size:15px;letter-spacing:.16em;color:var(--ink);margin-bottom:16px;font-weight:400}
-  .col p{color:var(--dim);font-size:15px;margin-bottom:14px}
-  .col p em{font-style:normal;color:var(--amber2)}
-  .specrow{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
-  .pill{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.16em;color:var(--dim);
-    border:1px solid var(--line);padding:7px 12px;display:flex;align-items:center;gap:7px}
-  .pill i{width:6px;height:6px;border-radius:50%;display:inline-block}
-  .pill .a{background:var(--amber);box-shadow:0 0 8px var(--amber)}
-  .pill .v{background:var(--violet);box-shadow:0 0 8px var(--violet)}
-  .pill .c{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
-
-  /* legend */
-  .legend{display:flex;flex-direction:column;gap:2px;margin-top:8px}
-  .leg{display:grid;grid-template-columns:34px 1fr;gap:14px;padding:14px 4px;border-top:1px solid var(--line2);
-    transition:background .25s,padding-left .25s}
-  .leg:last-child{border-bottom:1px solid var(--line2)}
-  .leg:hover{background:rgba(255,179,71,.04);padding-left:10px}
-  .leg .idx{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--faint);padding-top:2px;
-    display:flex;align-items:flex-start;gap:8px}
-  .leg .idx i{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
-  .leg h4{font-family:'Michroma';font-size:11px;letter-spacing:.14em;color:var(--ink);font-weight:400;margin-bottom:5px}
-  .leg p{font-size:13px;color:var(--dim);margin:0;line-height:1.5}
-
-  /* spec strip */
-  .strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line2);
-    border:1px solid var(--line2);margin-top:10px}
-  .stat{background:var(--bg2);padding:24px 18px;text-align:center;transition:background .3s}
-  .stat:hover{background:#0a0f1c}
-  .stat .k{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.24em;color:var(--faint);margin-bottom:10px}
-  .stat .v{font-family:'Michroma';font-size:clamp(15px,2vw,22px);color:var(--amber);letter-spacing:.04em;
-    text-shadow:0 0 16px rgba(255,179,71,.3)}
-  .stat .v small{font-size:11px;color:var(--dim)}
-
-  /* divider quote */
-  .quote{padding:90px 0;text-align:center}
-  .quote blockquote{font-family:'Michroma';font-weight:400;font-size:clamp(18px,3vw,30px);letter-spacing:.06em;
-    color:var(--ink);max-width:880px;margin:0 auto;line-height:1.4}
-  .quote blockquote span{color:var(--violet)}
-  .quote cite{display:block;margin-top:24px;font-style:normal;font-family:'IBM Plex Mono',monospace;
-    font-size:10px;letter-spacing:.3em;color:var(--faint)}
-
-  /* footer */
-  footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:46px 0 40px;margin-top:30px}
-  .foot{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
-    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--faint)}
-  .foot b{color:var(--dim);font-weight:400}
-
-  /* reveal */
-  [data-reveal]{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
-  [data-reveal].in{opacity:1;transform:none}
-  [data-reveal][data-d="1"]{transition-delay:.12s}
-  [data-reveal][data-d="2"]{transition-delay:.24s}
-
-  /* ---------- lightbox ---------- */
-  #lb{position:fixed;inset:0;z-index:80;background:rgba(2,3,8,.94);backdrop-filter:blur(10px);
-    display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
-  #lb.open{opacity:1;visibility:visible;transition:opacity .35s}
-  #lb .stage{max-width:92vw;max-height:84vh;position:relative;transform:scale(.96);transition:transform .4s cubic-bezier(.2,.7,.2,1)}
-  #lb.open .stage{transform:scale(1)}
-  #lb img{max-width:92vw;max-height:84vh;display:block;border:1px solid var(--line);
-    box-shadow:0 40px 120px rgba(0,0,0,.7)}
-  #lb .lbcap{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:16px;
-    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--dim)}
-  #lb .lbcap b{color:var(--amber2);font-weight:400}
-  #lb .close{position:fixed;top:24px;right:28px;width:42px;height:42px;border:1px solid var(--line);
-    background:rgba(8,12,22,.6);color:var(--dim);font-size:18px;cursor:pointer;transition:.2s;
-    display:flex;align-items:center;justify-content:center}
-  #lb .close:hover{color:var(--amber2);border-color:var(--amber);transform:rotate(90deg)}
-  #lb .navbtn{position:fixed;top:50%;transform:translateY(-50%);width:48px;height:64px;border:1px solid var(--line);
-    background:rgba(8,12,22,.5);color:var(--dim);font-size:20px;cursor:pointer;transition:.2s;
-    display:flex;align-items:center;justify-content:center}
-  #lb .navbtn:hover{color:var(--amber2);border-color:var(--amber)}
-  #lb .prev{left:24px}
-  #lb .next{right:24px}
-
-  /* ---------- responsive ---------- */
-  @media (max-width:900px){
-    nav{padding:12px 18px}
-    .navlinks{display:none}
-    .wrap{padding:0 18px}
-    section.plate{padding:84px 0}
-    .grid,.grid.rev{grid-template-columns:1fr;gap:30px}
-    .grid.rev .col{order:-1}
-    .strip{grid-template-columns:repeat(2,1fr)}
-    .stat:last-child{grid-column:1/-1}
-    #lb .navbtn{width:40px;height:52px}
-    #lb .prev{left:10px}#lb .next{right:10px}
-  }
+@media (max-width:640px) {
+  #panel { width:212px; right:12px; top:12px; }
+  #titlebar { left:14px; top:12px; }
+  #titlebar h1 { font-size:18px; }
+  #titlebar p { font-size:10px; }
+  #stats { left:14px; bottom:14px; }
+}
 </style>
 </head>
 <body>
+<canvas id="glcanvas"></canvas>
 
-<canvas id="stars"></canvas>
-<div class="cosmic"></div>
-<div class="grain"></div>
-<div id="prog"></div>
-
-<nav id="nav">
-  <div class="brand"><span class="ring"></span>SINGULARITY</div>
-  <div class="navlinks">
-    <a href="#plate1">RENDER</a>
-    <a href="#plate2">ANATOMY</a>
-    <a href="#specs">TELEMETRY</a>
-  </div>
-  <div class="navstat"><span class="dot"></span>OPTICAL&nbsp;ARRAY&nbsp;ONLINE</div>
-</nav>
-
-<!-- ===================== HERO ===================== -->
-<header class="hero">
-  <div class="hero-img" id="heroImg"></div>
-  <div class="hero-ov"></div>
-  <div class="hero-in">
-    <div class="ov">ENDURANCE // DEEP-FIELD OBSERVATORY</div>
-    <h1>GARGAN<span>TUA</span></h1>
-    <p class="tag">A supermassive black hole rendered twice — once as cinema, once as science. Two plates, one event horizon where light surrenders.</p>
-    <div class="chips">
-      <span class="chip"><b>8K</b> · CINEMATIC</span>
-      <span class="chip"><b>16:9</b> · LENSED</span>
-      <span class="chip"><b>a* ≈ 1</b> · EXTREMAL SPIN</span>
-    </div>
-  </div>
-  <div class="scrollcue"><span>SCROLL</span><span class="bar"></span></div>
+<header id="titlebar">
+  <h1>黑洞<span>模拟</span></h1>
+  <p>广义相对论光线追踪 · 吸积盘 / 光子环 / 多普勒频移</p>
 </header>
 
-<main>
-
-  <!-- ===================== PLATE I ===================== -->
-  <section class="plate" id="plate1">
-    <div class="wrap">
-      <div class="sec-head" data-reveal>
-        <div class="sec-num"><span class="ln"></span>PLATE <em>I</em> &nbsp;/&nbsp; CINEMATIC RENDER</div>
-        <h2>The <b>Awe</b> of the Abyss</h2>
-        <p>A hyper-realistic frame of superheated plasma spiralling into darkness — gravitational lensing folding the cosmos into a halo of fire around the shadow.</p>
-      </div>
-
-      <div class="grid">
-        <div class="frame" data-reveal data-img="0">
-          <span class="corner-tr"></span><span class="corner-bl"></span>
-          <span class="zoom">⤢ ENLARGE</span>
-          <img id="img1" alt="Cinematic render of a supermassive black hole with a glowing accretion disk and gravitational lensing">
-          <div class="cap"><span>FIG. 01 — <b>ACCRETION + LENSING</b></span><span>UE5 · 8K · 16:9</span></div>
-        </div>
-
-        <div class="col" data-reveal data-d="1">
-          <h3>LIGHT, BENT INTO A RING</h3>
-          <p>Matter torn from a companion star accelerates to a fraction of light-speed, heating to millions of degrees. The disk glows in <em>orange, blue and violet</em> — a thermal signature smeared across the spectrum.</p>
-          <p>Behind it, the black hole's gravity warps spacetime so violently that we see the <em>back</em> of the disk arcing over and under the shadow — the signature lensing that made Gargantua iconic.</p>
-          <div class="specrow">
-            <span class="pill"><i class="a"></i>SUPERHEATED PLASMA</span>
-            <span class="pill"><i class="v"></i>GRAVITATIONAL LENSING</span>
-            <span class="pill"><i class="c"></i>LENT GALAXIES</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== QUOTE ===================== -->
-  <div class="quote wrap" data-reveal>
-    <blockquote>“Do not go gentle into that good night — <span>rage against the dying of the light.</span>”</blockquote>
-    <cite>— TRANSMISSION LOG, ENDURANCE</cite>
+<aside id="panel">
+  <div class="head"><span>⚙ 控制面板</span><button id="collapseBtn" title="折叠/展开">–</button></div>
+  <div id="panelBody">
+    <div class="section">物理效果</div>
+    <div class="row"><label for="chkDoppler">多普勒频移</label><input type="checkbox" id="chkDoppler" checked></div>
+    <div class="row"><label for="chkGrav">引力红移</label><input type="checkbox" id="chkGrav" checked></div>
+    <div class="row"><label for="chkRing">光子环辉光</label><input type="checkbox" id="chkRing" checked></div>
+    <div class="section">吸积盘</div>
+    <div class="sliderRow"><div class="top"><label for="sBright">亮度</label><span class="val" id="vBright">1.0×</span></div>
+      <input type="range" id="sBright" min="0.2" max="3" step="0.05" value="1"></div>
+    <div class="sliderRow"><div class="top"><label for="sTemp">温度</label><span class="val" id="vTemp">5500 K</span></div>
+      <input type="range" id="sTemp" min="2500" max="14000" step="100" value="5500"></div>
+    <div class="sliderRow"><div class="top"><label for="sSpeed">时间流速</label><span class="val" id="vSpeed">1.0×</span></div>
+      <input type="range" id="sSpeed" min="0" max="4" step="0.1" value="1"></div>
+    <div class="section">渲染</div>
+    <div class="row"><label for="selQuality">画质</label>
+      <select id="selQuality">
+        <option value="low">低</option>
+        <option value="mid" selected>中</option>
+        <option value="high">高</option>
+      </select></div>
+    <button class="action" id="btnReset">重置视角</button>
   </div>
+</aside>
 
-  <!-- ===================== PLATE II ===================== -->
-  <section class="plate" id="plate2">
-    <div class="wrap">
-      <div class="sec-head" data-reveal>
-        <div class="sec-num"><span class="ln"></span>PLATE <em>II</em> &nbsp;/&nbsp; ANATOMICAL VIEW</div>
-        <h2>The <b>Anatomy</b> of Nothing</h2>
-        <p>A labelled conceptual plate dissecting the structure of a black hole — every feature annotated, from the silent event horizon to the relativistic jets.</p>
-      </div>
+<div id="stats">FPS <b id="stFps">--</b> · 距离 <b id="stDist">--</b> Rs · 积分步 <b id="stSteps">--</b></div>
+<div id="hint">🖱 拖拽旋转视角 · 滚轮缩放镜头 · 双击复位</div>
+<div id="err">⚠ 无法初始化 WebGL<br>请使用支持 WebGL 的现代浏览器</div>
 
-      <div class="grid rev">
-        <div class="col" data-reveal>
-          <h3>FIVE FEATURES, ONE OBJECT</h3>
-          <p>Hover the legend to study each region. The image at right maps every label to its physical structure as predicted by general relativity.</p>
-          <div class="legend">
-            <div class="leg"><div class="idx"><i style="background:#0a0a0a;border:1px solid var(--dim)"></i>01</div><div><h4>EVENT HORIZON</h4><p>The boundary of no return. Inside, escape velocity exceeds <em>c</em>; the silhouette we see is the black hole's "shadow".</p></div></div>
-            <div class="leg"><div class="idx"><i style="background:var(--amber)"></i>02</div><div><h4>PHOTON RING</h4><p>Light trapped in unstable orbits at ≈ 1.5 rₛ, lensed into a razor-thin luminous halo around the shadow.</p></div></div>
-            <div class="leg"><div class="idx"><i style="background:var(--violet)"></i>03</div><div><h4>ACCRETION DISK</h4><p>Superheated gas spiralling inward, radiating across X-ray to radio wavelengths as it loses angular momentum.</p></div></div>
-            <div class="leg"><div class="idx"><i style="background:var(--cyan)"></i>04</div><div><h4>GRAVITATIONAL LENSING</h4><p>Spacetime curvature bending background light into arcs, rings and distorted images of distant galaxies.</p></div></div>
-            <div class="leg"><div class="idx"><i style="background:#7fe0ff"></i>05</div><div><h4>JET STREAM</h4><p>Collimated relativistic plasma ejected along the spin axis at near light-speed by magnetic fields.</p></div></div>
-          </div>
-        </div>
-
-        <div class="frame" data-reveal data-d="1" data-img="1">
-          <span class="corner-tr"></span><span class="corner-bl"></span>
-          <span class="zoom">⤢ ENLARGE</span>
-          <img id="img2" alt="Labelled scientific diagram of a black hole showing event horizon, photon ring, accretion disk, gravitational lensing and jet streams">
-          <div class="cap"><span>FIG. 02 — <b>ANNOTATED STRUCTURE</b></span><span>EDU · 4K</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== SPECS ===================== -->
-  <section class="plate" id="specs" style="padding-top:30px">
-    <div class="wrap">
-      <div class="sec-head" data-reveal>
-        <div class="sec-num"><span class="ln"></span>TELEMETRY &nbsp;/&nbsp; NOMINAL PARAMETERS</div>
-        <h2>By the <b>Numbers</b></h2>
-      </div>
-      <div class="strip" data-reveal data-d="1">
-        <div class="stat"><div class="k">MASS</div><div class="v">10⁸ <small>M☉</small></div></div>
-        <div class="stat"><div class="k">SPIN a*</div><div class="v">0.9999</div></div>
-        <div class="stat"><div class="k">PHOTON SPHERE</div><div class="v">1.5 <small>rₛ</small></div></div>
-        <div class="stat"><div class="k">ISCO</div><div class="v">≈1 <small>rₛ</small></div></div>
-        <div class="stat"><div class="k">TIME DILATION</div><div class="v">EXTREME</div></div>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<footer>
-  <div class="wrap foot">
-    <span><b>SINGULARITY</b> · GARGANTUA IN TWO PLATES</span>
-    <span>RENDERED 2026 · NULL-GEODESIC VISUALIZATION</span>
-    <span>DRAG · SCROLL · <b>CLICK TO ENLARGE</b></span>
-  </div>
-</footer>
-
-<!-- ===================== LIGHTBOX ===================== -->
-<div id="lb">
-  <button class="close" aria-label="Close">✕</button>
-  <button class="navbtn prev" aria-label="Previous">‹</button>
-  <button class="navbtn next" aria-label="Next">›</button>
-  <div class="stage">
-    <img id="lbImg" alt="">
-    <div class="lbcap"><span id="lbTitle"></span><span id="lbCount"></span></div>
-  </div>
-</div>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* ---------- image assets ---------- */
-const ASSETS = [
-  { src:"https://image.qwenlm.ai/public_source/a70a84e7-e64d-41d5-b2b3-2b56c444e9e4/1c6048519-eea3-4e11-86cc-75c38a8b5f3c.png",
-    title:"FIG. 01 — CINEMATIC RENDER · 8K · 16:9" },
-  { src:"https://image.qwenlm.ai/public_source/a70a84e7-e64d-41d5-b2b3-2b56c444e9e4/156aee62b-f2af-4cf1-bda9-56498437bcff.png",
-    title:"FIG. 02 — ANATOMICAL VIEW · 4K" }
-];
-document.getElementById('img1').src = ASSETS[0].src;
-document.getElementById('img2').src = ASSETS[1].src;
-document.getElementById('heroImg').style.backgroundImage = `url(${ASSETS[0].src})`;
+(function(){
+'use strict';
+if (!window.THREE) { document.getElementById('err').style.display = 'flex'; return; }
 
-/* ---------- starfield ---------- */
-const cv = document.getElementById('stars');
-const cx = cv.getContext('2d');
-let stars = [], W, H, DPR;
-function buildStars(){
-  DPR = Math.min(devicePixelRatio, 2);
-  W = innerWidth; H = innerHeight;
-  cv.width = W*DPR; cv.height = H*DPR; cv.style.width = W+'px'; cv.style.height = H+'px';
-  cx.setTransform(DPR,0,0,DPR,0,0);
-  const n = Math.round(W*H/6500);
-  stars = [];
-  for(let i=0;i<n;i++){
-    stars.push({
-      x:Math.random()*W, y:Math.random()*H,
-      r:Math.random()*1.3+0.2,
-      a:Math.random()*0.6+0.2,
-      tw:Math.random()*Math.PI*2,
-      sp:Math.random()*0.8+0.2,
-      hue:Math.random()
-    });
-  }
+const VERT = `
+void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+
+const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+uniform vec2  uResolution;
+uniform float uTime;
+uniform vec3  uCamPos;
+uniform mat3  uCamMat;
+uniform float uDiskTemp;
+uniform float uDoppler;
+uniform float uGravShift;
+uniform float uBrightness;
+uniform float uRingGlow;
+uniform int   uMaxSteps;
+uniform float uDiskInner;
+uniform float uDiskOuter;
+
+/* ---------- 噪声 ---------- */
+float hash12(vec2 p){
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
-function drawStars(t){
-  cx.clearRect(0,0,W,H);
-  for(const s of stars){
-    const tw = 0.55 + 0.45*Math.sin(t*0.001*s.sp + s.tw);
-    const alpha = s.a*tw;
-    let col;
-    if(s.hue>0.9) col = `rgba(255,200,140,${alpha})`;
-    else if(s.hue>0.78) col = `rgba(170,200,255,${alpha})`;
-    else col = `rgba(230,238,255,${alpha})`;
-    cx.beginPath();
-    cx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-    cx.fillStyle = col;
-    cx.fill();
-    if(s.r>1.0){
-      cx.beginPath();
-      cx.arc(s.x, s.y, s.r*2.4, 0, Math.PI*2);
-      cx.fillStyle = `rgba(180,210,255,${alpha*0.08})`;
-      cx.fill();
+float hash13(vec3 p3){
+    p3 = fract(p3 * 0.1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return fract((p3.x + p3.y) * p3.z);
+}
+float vnoise(vec2 p){
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash12(i);
+    float b = hash12(i + vec2(1.0, 0.0));
+    float c = hash12(i + vec2(0.0, 1.0));
+    float d = hash12(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+float fbm(vec2 p){
+    float v = 0.0;
+    float a = 0.5;
+    for(int i = 0; i < 5; i++){
+        v += a * vnoise(p);
+        p = p * 2.03 + vec2(11.71, 9.23);
+        a *= 0.5;
     }
-    s.y += s.sp*0.02;
-    if(s.y>H+2){ s.y=-2; s.x=Math.random()*W; }
-  }
-  requestAnimationFrame(drawStars);
+    return v;
 }
-buildStars();
-requestAnimationFrame(drawStars);
-addEventListener('resize', buildStars);
 
-/* ---------- nav scroll + progress + parallax ---------- */
-const nav = document.getElementById('nav');
-const prog = document.getElementById('prog');
-const heroImg = document.getElementById('heroImg');
-addEventListener('scroll', ()=>{
-  const y = scrollY;
-  nav.classList.toggle('scrolled', y>40);
-  const max = document.documentElement.scrollHeight - innerHeight;
-  prog.style.width = (max>0 ? (y/max*100) : 0)+'%';
-  if(y < innerHeight){
-    heroImg.style.transform = `translateY(${y*0.18}px)`;
-  }
-}, {passive:true});
-
-/* ---------- reveal ---------- */
-const io = new IntersectionObserver((es)=>{
-  es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-}, {threshold:0.15});
-document.querySelectorAll('[data-reveal]').forEach(el=>io.observe(el));
-
-/* ---------- lightbox ---------- */
-const lb = document.getElementById('lb');
-const lbImg = document.getElementById('lbImg');
-const lbTitle = document.getElementById('lbTitle');
-const lbCount = document.getElementById('lbCount');
-let cur = 0;
-function showLb(i){
-  cur = (i+ASSETS.length)%ASSETS.length;
-  lbImg.src = ASSETS[cur].src;
-  lbImg.alt = ASSETS[cur].title;
-  lbTitle.textContent = ASSETS[cur].title;
-  lbCount.textContent = (cur+1)+' / '+ASSETS.length;
+/* ---------- 黑体辐射颜色 (K -> RGB) ---------- */
+vec3 blackbody(float t){
+    t = clamp(t, 900.0, 40000.0);
+    vec3 c;
+    c.r = 56100000.0 * pow(t, -1.5) + 148.0;
+    c.g = 100.04 * log(t) - 623.6;
+    if(t > 6500.0) c.g = 35200000.0 * pow(t, -1.5) + 184.0;
+    c.b = 194.18 * log(t) - 1448.6;
+    c = clamp(c, 0.0, 255.0) / 255.0;
+    if(t < 1000.0) c *= t / 1000.0;
+    return c;
 }
-function openLb(i){ showLb(i); lb.classList.add('open'); document.body.style.overflow='hidden'; }
-function closeLb(){ lb.classList.remove('open'); document.body.style.overflow=''; }
-document.querySelectorAll('.frame[data-img]').forEach(f=>{
-  f.addEventListener('click', ()=> openLb(+f.dataset.img));
+
+/* ---------- 施瓦西零测地线 (rs = 1, c = 1) ----------
+   d²x/dλ² = -3/2 · h² · x / r⁵,  h = |x × v| 守恒 */
+vec3 accel(vec3 p, float h2){
+    float r2 = dot(p, p);
+    float r = sqrt(r2);
+    return (-1.5 * h2 / (r2 * r2 * r)) * p;
+}
+
+/* ---------- 吸积盘发射 (开普勒旋转 + 多普勒 + 引力红移) ---------- */
+vec3 diskEmission(vec3 cp, vec3 vDir, out float alpha){
+    float rr = length(cp.xz);
+    alpha = 0.0;
+    if(rr < uDiskInner || rr > uDiskOuter) return vec3(0.0);
+
+    /* 开普勒轨道速度 β = sqrt(GM/r), GM = rs/2 = 0.5 */
+    float beta = sqrt(0.5 / rr);
+    vec3 betaVec = beta * vec3(-cp.z, 0.0, cp.x) / rr;
+    float gamma = inversesqrt(max(1.0 - beta * beta, 1e-4));
+
+    /* 物理光子方向(盘 -> 相机) = -v, 多普勒因子 δ = 1/[γ(1-β·n)] */
+    vec3 n = -normalize(vDir);
+    float dop = 1.0 / (gamma * (1.0 - dot(betaVec, n)));
+    dop = mix(1.0, dop, uDoppler);
+
+    /* 引力红移 sqrt(1 - rs/r) */
+    float grav = sqrt(max(1.0 - 1.0 / rr, 0.0));
+    grav = mix(1.0, grav, uGravShift);
+
+    float shift = dop * grav;
+    float T = uDiskTemp * pow(uDiskInner / rr, 0.75) * shift;
+    vec3 bb = blackbody(T);
+    float beam = pow(shift, 3.5);   /* 相对论性束流 */
+
+    /* 较差旋转纹理 */
+    float ang = atan(cp.z, cp.x);
+    float omega = sqrt(0.5 / (rr * rr * rr));
+    float rot = ang - uTime * omega * 3.0;
+    float lr = log(rr);
+    float n1 = fbm(vec2(rot * 1.6 + lr * 2.0, lr * 3.0));
+    float n2 = fbm(vec2(rot * 4.5 - lr * 1.5, lr * 6.0) + 5.2);
+    float tex = (0.45 + 0.85 * n1) * (0.65 + 0.55 * n2);
+
+    float edgeIn  = smoothstep(uDiskInner * 0.98, uDiskInner * 1.15, rr);
+    float edgeOut = 1.0 - smoothstep(uDiskOuter * 0.45, uDiskOuter, rr);
+    float radial = edgeIn * edgeOut * pow(uDiskInner / rr, 2.0);
+
+    float density = radial * tex * 2.4;
+    alpha = clamp(density, 0.0, 0.93);
+    return bb * beam * density;
+}
+
+/* ---------- 背景星空 ---------- */
+float starField(vec3 rd){
+    float s = 0.0;
+    for(int l = 0; l < 3; l++){
+        float sc = 60.0 + float(l) * 90.0;
+        vec3 p = rd * sc;
+        vec3 id = floor(p);
+        vec3 gv = fract(p) - 0.5;
+        float rnd = hash13(id + float(l) * 13.7);
+        if(rnd > 0.93){
+            vec3 offs = vec3(hash13(id + 1.7), hash13(id + 3.1), hash13(id + 5.3)) - 0.5;
+            float d = length(gv - offs * 0.6);
+            float b = (rnd - 0.93) / 0.07;
+            s += (1.0 - smoothstep(0.0, 0.28, d)) * b * b * 1.6;
+        }
+    }
+    return s;
+}
+vec3 background(vec3 rd){
+    vec3 c = vec3(0.006, 0.008, 0.020);
+    vec3 bn = normalize(vec3(0.25, 1.0, 0.4));
+    float band = exp(-abs(dot(rd, bn)) * 3.0);
+    float bnz = fbm(vec2(atan(rd.z, rd.x) * 1.5, rd.y * 5.0));
+    c += band * (0.03 + 0.10 * bnz) * vec3(0.30, 0.36, 0.58);
+    c += starField(rd) * vec3(0.85, 0.90, 1.0);
+    return c;
+}
+
+void main(){
+    vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
+    vec3 rd = normalize(uCamMat * vec3(uv, 1.5));
+    vec3 ro = uCamPos;
+
+    vec3 p = ro;
+    vec3 v = rd;
+    vec3 prevP = ro;
+    float prevY = ro.y;
+
+    vec3 hv = cross(ro, rd);
+    float h2 = dot(hv, hv);          /* 守恒角动量平方 */
+
+    vec3 col = vec3(0.0);
+    float trans = 1.0;
+    float minR = length(ro);
+    bool escaped = false;
+
+    /* RK4 积分光线轨迹 */
+    for(int i = 0; i < 600; i++){
+        if(i >= uMaxSteps) break;
+
+        float r2 = dot(p, p);
+        float r = sqrt(r2);
+        minR = min(minR, r);
+        float dt = clamp(0.06 * r, 0.03, 0.6);
+
+        vec3 a1 = accel(p, h2);
+        vec3 v2 = v + 0.5 * dt * a1;
+        vec3 p2 = p + 0.5 * dt * v;
+        vec3 a2 = accel(p2, h2);
+        vec3 v3 = v + 0.5 * dt * a2;
+        vec3 p3 = p + 0.5 * dt * v2;
+        vec3 a3 = accel(p3, h2);
+        vec3 v4 = v + dt * a3;
+        vec3 p4 = p + dt * v3;
+        vec3 a4 = accel(p4, h2);
+
+        prevP = p;
+        p += (dt / 6.0) * (v + 2.0 * v2 + 2.0 * v3 + v4);
+        v += (dt / 6.0) * (a1 + 2.0 * a2 + 2.0 * a3 + a4);
+
+        /* 穿越吸积盘平面 -> 累积发射 */
+        if(prevY * p.y < 0.0 && trans > 0.02){
+            float tt = prevY / (prevY - p.y);
+            vec3 cp = mix(prevP, p, tt);
+            float alpha;
+            vec3 emit = diskEmission(cp, v, alpha);
+            col += trans * emit * uBrightness;
+            trans *= 1.0 - alpha;
+        }
+        prevY = p.y;
+
+        float nr = length(p);
+        if(nr < 1.0) break;                              /* 落入视界 */
+        if(nr > 70.0 && dot(p, v) > 0.0){ escaped = true; break; }
+    }
+
+    if(escaped) col += trans * background(normalize(v));
+
+    /* 光子环辉光 (最接近半径 ≈ 1.5 rs 的光线) */
+    float ring = exp(-pow((minR - 1.5) * 5.5, 2.0));
+    col += ring * vec3(1.0, 0.82, 0.60) * 0.12 * uRingGlow * uBrightness;
+
+    /* 色调映射 + 伽马 */
+    col = 1.0 - exp(-col * 1.35);
+    col = pow(col, vec3(0.4545));
+
+    vec2 q = gl_FragCoord.xy / uResolution;
+    float vig = 1.0 - 0.30 * pow(length(q - 0.5) * 1.414, 2.8);
+    col *= vig;
+
+    col += (hash12(gl_FragCoord.xy) - 0.5) / 255.0;   /* 抖动去色带 */
+    gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+/* ================= 渲染器 ================= */
+const canvas = document.getElementById('glcanvas');
+let renderer;
+try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias:false, depth:false,
+        stencil:false, powerPreference:'high-performance' });
+} catch(e) { document.getElementById('err').style.display = 'flex'; return; }
+renderer.setClearColor(0x000000, 1);
+
+const scene = new THREE.Scene();
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+const uniforms = {
+    uResolution: { value: new THREE.Vector2(1, 1) },
+    uTime:       { value: 0 },
+    uCamPos:     { value: new THREE.Vector3() },
+    uCamMat:     { value: new THREE.Matrix3() },
+    uDiskTemp:   { value: 5500 },
+    uDoppler:    { value: 1 },
+    uGravShift:  { value: 1 },
+    uBrightness: { value: 1.0 },
+    uRingGlow:   { value: 1 },
+    uMaxSteps:   { value: 260 },
+    uDiskInner:  { value: 2.8 },
+    uDiskOuter:  { value: 13.0 },
+};
+const material = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT,
+    fragmentShader: FRAG, depthTest:false, depthWrite:false });
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+quad.frustumCulled = false;
+scene.add(quad);
+
+/* ================= 相机控制 ================= */
+const TAU = Math.PI * 2;
+const DEF_AZIM = 0.9, DEF_ELEV = 0.33, DEF_DIST = 13.0;
+const MIN_DIST = 3.2, MAX_DIST = 55.0;
+let azim = DEF_AZIM, elev = DEF_ELEV, dist = DEF_DIST;
+let viewAnim = null;
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const camPos = new THREE.Vector3();
+const fwd = new THREE.Vector3(), rightV = new THREE.Vector3(), upV = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+
+function updateCamera(){
+    const ce = Math.cos(elev), se = Math.sin(elev);
+    camPos.set(dist * ce * Math.cos(azim), dist * se, dist * ce * Math.sin(azim));
+    fwd.copy(camPos).multiplyScalar(-1).normalize();
+    rightV.crossVectors(fwd, UP).normalize();
+    upV.crossVectors(rightV, fwd).normalize();
+    uniforms.uCamMat.value.set(
+        rightV.x, upV.x, fwd.x,
+        rightV.y, upV.y, fwd.y,
+        rightV.z, upV.z, fwd.z
+    );
+    uniforms.uCamPos.value.copy(camPos);
+}
+
+/* ---- 鼠标 / 触摸 ---- */
+const activePointers = new Map();
+let lastPinch = 0;
+
+canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    canvas.classList.add('dragging');
+    viewAnim = null;
+    hideHint();
 });
-lb.querySelector('.close').addEventListener('click', closeLb);
-lb.querySelector('.prev').addEventListener('click', e=>{ e.stopPropagation(); showLb(cur-1); });
-lb.querySelector('.next').addEventListener('click', e=>{ e.stopPropagation(); showLb(cur+1); });
-lb.addEventListener('click', e=>{ if(e.target===lb) closeLb(); });
-addEventListener('keydown', e=>{
-  if(!lb.classList.contains('open')) return;
-  if(e.key==='Escape') closeLb();
-  if(e.key==='ArrowLeft') showLb(cur-1);
-  if(e.key==='ArrowRight') showLb(cur+1);
+canvas.addEventListener('pointermove', (e) => {
+    if (!activePointers.has(e.pointerId)) return;
+    const prev = activePointers.get(e.pointerId);
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size === 1) {
+        azim -= (e.clientX - prev.x) * 0.005;
+        elev = clamp(elev - (e.clientY - prev.y) * 0.005, -1.45, 1.45);
+    } else if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (lastPinch > 0) dist = clamp(dist * lastPinch / d, MIN_DIST, MAX_DIST);
+        lastPinch = d;
+    }
 });
+function endPointer(e){
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) lastPinch = 0;
+    if (activePointers.size === 0) canvas.classList.remove('dragging');
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    dist = clamp(dist * Math.exp(e.deltaY * 0.0012), MIN_DIST, MAX_DIST);
+    viewAnim = null;
+    hideHint();
+}, { passive: false });
+
+canvas.addEventListener('dblclick', resetView);
+
+function resetView(){
+    const targetAzim = DEF_AZIM + Math.round((azim - DEF_AZIM) / TAU) * TAU;
+    viewAnim = { from: { azim, elev, dist },
+                 to: { azim: targetAzim, elev: DEF_ELEV, dist: DEF_DIST }, t: 0 };
+}
+
+/* ================= 画质 ================= */
+const QUALITY = {
+    low:  { steps: 150, scale: 0.55 },
+    mid:  { steps: 260, scale: 0.80 },
+    high: { steps: 420, scale: 1.00 },
+};
+let resScale = QUALITY.mid.scale;
+
+function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.75) * resScale;
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderer.getDrawingBufferSize(uniforms.uResolution.value);
+}
+function applyQuality(q){
+    const preset = QUALITY[q];
+    uniforms.uMaxSteps.value = preset.steps;
+    resScale = preset.scale;
+    resize();
+    document.getElementById('stSteps').textContent = preset.steps;
+}
+window.addEventListener('resize', resize);
+
+/* ================= UI ================= */
+const $ = id => document.getElementById(id);
+$('chkDoppler').addEventListener('change', e => uniforms.uDoppler.value = e.target.checked ? 1 : 0);
+$('chkGrav').addEventListener('change', e => uniforms.uGravShift.value = e.target.checked ? 1 : 0);
+$('chkRing').addEventListener('change', e => uniforms.uRingGlow.value = e.target.checked ? 1 : 0);
+$('sBright').addEventListener('input', e => {
+    uniforms.uBrightness.value = parseFloat(e.target.value);
+    $('vBright').textContent = parseFloat(e.target.value).toFixed(1) + '×';
+});
+$('sTemp').addEventListener('input', e => {
+    uniforms.uDiskTemp.value = parseFloat(e.target.value);
+    $('vTemp').textContent = e.target.value + ' K';
+});
+let timeSpeed = 1.0;
+$('sSpeed').addEventListener('input', e => {
+    timeSpeed = parseFloat(e.target.value);
+    $('vSpeed').textContent = timeSpeed.toFixed(1) + '×';
+});
+$('selQuality').addEventListener('change', e => applyQuality(e.target.value));
+$('btnReset').addEventListener('click', resetView);
+$('collapseBtn').addEventListener('click', () => {
+    const panel = $('panel');
+    panel.classList.toggle('collapsed');
+    $('collapseBtn').textContent = panel.classList.contains('collapsed') ? '+' : '–';
+});
+
+const hint = $('hint');
+let hintHidden = false;
+function hideHint(){ if (!hintHidden) { hintHidden = true; hint.classList.add('hidden'); } }
+setTimeout(hideHint, 9000);
+
+/* ================= 主循环 ================= */
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+applyQuality(isMobile ? 'low' : 'mid');
+$('selQuality').value = isMobile ? 'low' : 'mid';
+
+let simTime = 0, lastT = performance.now();
+let frames = 0, fpsLast = performance.now();
+const stFps = $('stFps'), stDist = $('stDist');
+
+function tick(now){
+    const dtms = now - lastT; lastT = now;
+    const dtSec = Math.min(dtms / 1000, 0.05);
+    simTime += dtSec * timeSpeed;
+    uniforms.uTime.value = simTime;
+
+    if (viewAnim) {
+        viewAnim.t += dtSec / 0.7;
+        const t = Math.min(viewAnim.t, 1);
+        const k = t * t * (3 - 2 * t);
+        azim = lerp(viewAnim.from.azim, viewAnim.to.azim, k);
+        elev = lerp(viewAnim.from.elev, viewAnim.to.elev, k);
+        dist = lerp(viewAnim.from.dist, viewAnim.to.dist, k);
+        if (t >= 1) viewAnim = null;
+    }
+
+    updateCamera();
+    renderer.render(scene, ortho);
+
+    frames++;
+    if (now - fpsLast > 500) {
+        stFps.textContent = Math.round(frames * 1000 / (now - fpsLast));
+        stDist.textContent = dist.toFixed(1);
+        frames = 0; fpsLast = now;
+    }
+    requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+})();
 </script>
 </body>
 </html>
